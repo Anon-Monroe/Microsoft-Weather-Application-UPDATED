@@ -32,17 +32,24 @@ input{width:100%;height:32px;padding:0 10px;border:1px solid var(--line);border-
 .sub{color:var(--sub)}
 .kv{display:flex;gap:12px}
 .kv b{width:92px;flex:none;color:var(--acc)}
-.center{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:16px;min-width:0;color:var(--ctxt)}
+.center{display:flex;flex-direction:column;align-items:center;justify-content:safe center;text-align:center;padding:16px;min-width:0;min-height:0;overflow:auto;color:var(--ctxt)}
 #city{font-size:15px;letter-spacing:.24em;text-transform:uppercase;color:var(--csub)}
 #temp{font-size:clamp(90px,12vw,150px);font-weight:200;line-height:1.05}
 #cond{font-size:26px;font-weight:300;color:var(--csub)}
 #date{font-size:22px;font-weight:300;color:var(--csub);margin-top:6px}
-#week{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:40px}
+#week{display:flex;flex-wrap:wrap;justify-content:center;gap:6px;margin-top:28px}
 .day{width:62px}
-.day small{font-family:'Source Code Pro',ui-monospace,monospace;font-size:12px;color:var(--csub)}
-.day span{display:block;font-size:11px;min-height:30px;margin:6px 0;color:var(--csub)}
 .day b{display:block;font-size:15px;font-weight:400}
-.day i{font-style:normal;font-size:13px;color:var(--csub)}
+.day .ic{margin:6px 0;color:var(--ctxt)}
+.ic svg{width:28px;height:28px;display:block;margin:0 auto}
+.day i{display:block;font-style:normal;font-size:13px;color:var(--csub)}
+.day small{display:block;margin-top:6px;font-family:'Source Code Pro',ui-monospace,monospace;font-size:12px;color:var(--csub)}
+#term{width:100%;max-width:560px;height:190px;margin-top:24px;flex:none;text-align:left;color:var(--txt)}
+#term select{background:var(--bar);color:var(--sub);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:12px;height:20px}
+#out{flex:1;min-height:0;margin:0;overflow:auto;font-size:12px;line-height:1.5;white-space:pre-wrap;word-break:break-all}
+.tline{display:flex;gap:6px;align-items:center;border-top:1px solid var(--line);padding-top:6px;margin-top:6px;font-size:12px}
+.tline span{color:var(--acc)}
+.tline input{border:0;height:22px;padding:0;flex:1;font-family:inherit;font-size:12px}
 #map{height:100%;min-height:180px;border-radius:4px}
 footer{grid-column:1/5;display:flex;align-items:center;justify-content:space-between;padding:0 14px;background:var(--panel);font-size:12px}
 </style>
@@ -72,6 +79,8 @@ footer{grid-column:1/5;display:flex;align-items:center;justify-content:space-bet
 <div id="cond"></div>
 <div id="date"></div>
 <div id="week"></div>
+<section class="win" id="term"><header><span>terminal</span><span style="display:flex;gap:8px;align-items:center"><select id="shells" aria-label="Choose a shell"></select><button class="btn" id="azure" style="height:20px;font-size:12px;padding:0 8px">Azure Cloud Shell</button></span></header>
+<div class="body" style="display:flex;flex-direction:column;padding:8px 12px"><pre id="out" class="mono"></pre><div class="tline mono"><span>&gt;</span><input id="tin" aria-label="Type a command" autocomplete="off" spellcheck="false"></div></div></section>
 </div>
 
 <div class="col">
@@ -93,6 +102,17 @@ let S={theme:st.theme||'dark',unit:st.unit||'C',favs:st.favs||[],cur:st.cur||nul
 const save=()=>localStorage.setItem('wx',JSON.stringify(S));
 const WC={0:'Clear',1:'Mostly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',48:'Fog',51:'Light drizzle',53:'Drizzle',55:'Heavy drizzle',61:'Light rain',63:'Rain',65:'Heavy rain',71:'Light snow',73:'Snow',75:'Heavy snow',80:'Showers',81:'Showers',82:'Heavy showers',95:'Thunderstorm',96:'Thunderstorm, hail',99:'Thunderstorm, hail'};
 const wc=c=>WC[c]||'Unknown';
+const CL='<path d="M7 18a4 4 0 010-8 5 5 0 019.6-1.2A3.6 3.6 0 0117 18z"/>';
+const ic=c=>{
+  const h='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  let b=CL;
+  if(c<=1)b='<circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>';
+  else if(c===2)b='<circle cx="9" cy="8" r="3"/><path d="M9 2v1M3 8h1M5 4l1 1M13 4l-1 1"/><g transform="translate(3,3) scale(.85)">'+CL+'</g>';
+  else if((c>=51&&c<=67)||(c>=80&&c<=82))b=CL+'<path d="M8 20l-1 2M12 20l-1 2M16 20l-1 2"/>';
+  else if(c>=71&&c<=77)b=CL+'<path d="M8 21h.01M12 21h.01M16 21h.01"/>';
+  else if(c>=95)b=CL+'<path d="M12 14l-2 4h3l-2 4"/>';
+  return h+b+'</svg>';
+};
 const T=c=>Math.round(S.unit==='F'?c*9/5+32:c)+'°';
 let W=null,lastAlert='';
 
@@ -121,7 +141,7 @@ function render(){
   $('#temp').textContent=T(c.temperature_2m);
   $('#cond').textContent=wc(c.weather_code)+' · Feels like '+T(c.apparent_temperature);
   $('#date').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',month:'long',day:'numeric'});
-  $('#week').innerHTML=d.daily.time.map((t,i)=>`<div class="day"><small>${new Date(t+'T12:00').toLocaleDateString(undefined,{weekday:'short'}).toUpperCase()}</small><span>${wc(d.daily.weather_code[i])}</span><b>${T(d.daily.temperature_2m_max[i])}</b><i>${T(d.daily.temperature_2m_min[i])}</i></div>`).join('');
+  $('#week').innerHTML=d.daily.time.map((t,i)=>`<div class="day"><b>${T(d.daily.temperature_2m_max[i])}</b><div class="ic" role="img" aria-label="${wc(d.daily.weather_code[i])}">${ic(d.daily.weather_code[i])}</div><i>${T(d.daily.temperature_2m_min[i])}</i><small>${new Date(t+'T12:00').toLocaleDateString(undefined,{weekday:'short'}).toUpperCase()}</small></div>`).join('');
   const i0=Math.max(0,d.hourly.time.findIndex(t=>t>=c.time));
   $('#hourly').innerHTML='<div class="prompt">$ hourly --next 6</div>'+[0,1,2,3,4,5].map(k=>{const i=i0+k;return `<div><span class="sub">${d.hourly.time[i].slice(11,16)}</span> <b>${T(d.hourly.temperature_2m[i])}</b>  ${wc(d.hourly.weather_code[i])}</div>`}).join('');
   const alert=c.weather_code>=95?'Thunderstorm expected':c.wind_gusts_10m>=60?'Strong wind gusts':'None';
@@ -198,7 +218,34 @@ $('#c').onclick=()=>{S.unit='C';save();unitBtns();if(W)render()};
 $('#f').onclick=()=>{S.unit='F';save();unitBtns();if(W)render()};
 $('#theme').onclick=()=>{S.theme=S.theme==='dark'?'light':'dark';save();applyTheme()};
 
-applyTheme();unitBtns();favs();
+const out=$('#out'),tin=$('#tin');
+function tprint(t){
+  out.textContent+=t.replace(/\x1b\[[0-9;?]*[A-Za-z]/g,'');
+  if(out.textContent.length>20000)out.textContent=out.textContent.slice(-15000);
+  out.scrollTop=out.scrollHeight;
+}
+async function initTerm(){
+  if(!window.term){
+    out.textContent='The terminal works in the desktop app only.';
+    tin.disabled=true;$('#shells').disabled=true;$('#azure').disabled=true;
+    return;
+  }
+  const l=await term.shells();
+  $('#shells').innerHTML=l.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+  term.onData(tprint);
+  $('#shells').onchange=()=>{out.textContent='';term.start($('#shells').value)};
+  $('#azure').onclick=()=>term.azure();
+  term.start(l[0].id);
+}
+tin.onkeydown=e=>{
+  if(e.key==='Enter'){
+    const v=tin.value;tin.value='';
+    tprint('> '+v+'\n');
+    term.write(v+'\n');
+  }
+};
+
+applyTheme();unitBtns();favs();initTerm();
 try{Notification.requestPermission()}catch(e){}
 S.cur?load(S.cur):locate();
 </script>
