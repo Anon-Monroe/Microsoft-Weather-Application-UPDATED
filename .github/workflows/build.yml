@@ -1,0 +1,48 @@
+name: Build apps
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            flags: --win
+          - os: macos-latest
+            flags: --mac
+          - os: ubuntu-latest
+            flags: --linux AppImage
+    runs-on: ${{ matrix.os }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Create package
+        shell: bash
+        run: |
+          npm init -y
+          npm pkg set name=microsoft-weather-application
+          npm pkg set main=main.js
+          npm pkg set description="Weather application"
+          npm pkg set author="Weather App"
+          npm pkg set build.appId=com.weather.app
+          npm pkg set build.productName="Microsoft Weather Application"
+          npm install --save-dev electron electron-builder
+      - name: Build
+        shell: bash
+        run: npx electron-builder ${{ matrix.flags }} --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: app-${{ matrix.os }}
+          path: |
+            dist/*.exe
+            dist/*.dmg
+            dist/*.AppImage
